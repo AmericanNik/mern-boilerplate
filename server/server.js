@@ -1,88 +1,45 @@
 const express = require('express');
+const morgan = require('morgan');
+
+const cors = require('cors');
+const bodyParser = require('body-parser');
+
+const mongoose = require('mongoose');
+
+require('dotenv').config();
 
 const app = express();
+
+// database connection
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log('Database Connected'));
+
+mongoose.connection.on('error', (err) => {
+  console.log(`DB connection error: ${err.message}`);
+});
 
 //import routes
 const authRoutes = require('./routes/auth');
 
+//app middlewares  - these middlewares need to be before the app middleware
+
+app.use(morgan('dev'));
+app.use(bodyParser.json()); // allows you to see request body in json
+//app.use(cors()) // allows all origins
+
+if ((process.env.NODE_ENV = 'development')) {
+  app.use(cors({ origin: `http://localhost:3000` }));
+}
+
 // middleware
 app.use('/api', authRoutes);
 
-const PORT = process.env.port || 8000;
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
-  console.log(`API is running on port ${PORT}`);
+  console.log(`API is running on port ${PORT} -${process.env.NODE_ENV}`);
 });
-
-const mongoose = require('mongoose');
-const crypto = require('crypto');
-
-const userSchema = new mongoose.Schema(
-  {
-    name: {
-      type: String,
-      trim: true,
-      required: true,
-      max: 32,
-    },
-    email: {
-      type: String,
-      trim: true,
-      required: true,
-      unique: true,
-      lowercase: true,
-    },
-    hashed_password: {
-      type: String,
-      required: true,
-    },
-    salt: String,
-    role: {
-      type: String,
-      default: 'subscriber',
-    },
-    resetPasswordLink: {
-      data: String,
-      default: '',
-    },
-  },
-  { timestamps: true }
-);
-
-userSchema
-  .virtual('password')
-  .set(function (password) {
-    // create a temporarity variable called _password
-    this._password = password;
-    // generate salt
-    this.salt = this.makeSalt();
-    // encryptPassword
-    this.hashed_password = this.encryptPassword(password);
-  })
-  .get(function () {
-    return this._password;
-  });
-
-userSchema.methods = {
-  authenticate: function (plainText) {
-    return this.encryptPassword(plainText) === this.hashed_password;
-  },
-
-  encryptPassword: function (password) {
-    if (!password) return '';
-    try {
-      return crypto
-        .createHmac('sha1', this.salt)
-        .update(password)
-        .digest('hex');
-    } catch (err) {
-      return '';
-    }
-  },
-
-  makeSalt: function () {
-    return Math.round(new Date().valueOf() * Math.random()) + '';
-  },
-};
-
-module.exports = mongoose.model('User', userSchema);
