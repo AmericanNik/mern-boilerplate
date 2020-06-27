@@ -52,8 +52,8 @@ userSchema
 // methods
 
 userSchema.methods = {
-  authenticate: function (painText) {
-    return (this.encryptPassword() = this.hashed_password);
+  authenticate: function (plainText) {
+    return this.encryptPassword(plainText) === this.hashed_password;
   },
 
   encryptPassword: function (password) {
@@ -61,7 +61,7 @@ userSchema.methods = {
     try {
       return crypto
         .createHmac('sha1', this.salt)
-        .update(_password)
+        .update(password)
         .digest('hex');
     } catch (err) {
       return '';
